@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Slurm job output (if submitted from repo root)
+slurm-*.out
+
+# Python cache (lab 11)
+__pycache__/
+*.pyc
+
+# VS Code remote settings
+.vscode/
+
+# Obsidian
+.obsidian/
