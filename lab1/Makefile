@@ -11,4 +11,4 @@ all: out $(CU_BINS) $(CPP_BINS)
 out: ; mkdir -p out
 %: %.cu  ; nvcc $(NVCCFLAGS) $(LDFLAGS) $< -o $@
 %: %.cpp ; g++  $(CXXFLAGS) $< -o $@
-clean:   ; rm -f $(CU_BINS) $(CPP_BINS)IM
+clean:   ; rm -f $(CU_BINS) $(CPP_BINS)

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <immintrin.h>
+#include <cstdio>
 
 // CPU Scalar Mandelbrot set generation.
 // Based on the "optimized escape time algorithm" in
@@ -40,8 +41,56 @@ void mandelbrot_cpu_scalar(uint32_t img_size, uint32_t max_iters, uint32_t *out)
 
 /// <--- your code here --->
 
-void mandelbrot_cpu_vector(uint32_t img_size, uint32_t max_iters, uint32_t *out) {
-    // TODO: Implement this function.
+void mandelbrot_cpu_vector(
+    uint32_t img_size,
+    uint32_t max_iters,
+    uint32_t *out) {
+    uint64_t stride = 16;
+    for (uint64_t i = 0; i < img_size; ++i) {
+        for (uint64_t j = 0; j < img_size; j = j + stride) {
+            // Get the plane coordinate X for the image pixel.
+            // cx different for each lane
+            float cx[stride];
+            for(int offset = 0; offset < stride; offset++){
+                cx[offset] = ((float(j) + float(offset))/ float(img_size)) * 2.5f - 2.0f;
+            }
+            float cy = (float(i) / float(img_size)) * 2.5f - 1.25f;
+            // turn them into vectors
+            __m512 cx512 = _mm512_loadu_ps(cx);
+            __m512 cy512 = _mm512_set1_ps(cy);
+
+            // Innermost loop: start the recursion from z = 0.
+            __m512 x2 = _mm512_set1_ps(0.0f);
+            __m512 y2 = _mm512_set1_ps(0.0f);
+            __m512 w = _mm512_set1_ps(0.0f);
+
+            // interation counter per float
+            uint32_t iters = 0;
+            __m512i iters512 = _mm512_set1_epi32(0);
+            __m512i inc = _mm512_set1_epi32(1);
+
+            // mask for loop updating
+            __m512 upper_bound = _mm512_set1_ps(4.0f);
+            __mmask16 mask = 0xFFFF; // set all lanes to true (1)
+            const uint32_t cmp = 0x02; // LE comparison (<=)
+
+            while (mask && iters < max_iters) {
+                __m512 x = _mm512_add_ps(_mm512_sub_ps(x2, y2), cx512);
+                __m512 y = _mm512_add_ps(_mm512_sub_ps(_mm512_sub_ps(w,x2), y2), cy512);
+                x2 = _mm512_mul_ps(x, x);
+                y2 = _mm512_mul_ps(y, y);
+                __m512 z = _mm512_add_ps(x, y);
+                w = _mm512_mul_ps(z, z);
+                // update iters and mask
+                iters++;
+                iters512 = _mm512_mask_add_epi32(iters512, mask, iters512, inc);
+                mask = _mm512_cmp_ps_mask(_mm512_add_ps(x2, y2), upper_bound, cmp);
+            }
+
+            // Write result.
+            _mm512_storeu_si512(&out[i * img_size + j], iters512);
+        }
+    }
 }
 
 /// <--- /your code here --->
